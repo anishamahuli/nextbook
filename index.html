@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Book Recommender</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            margin: 0;
+            background: linear-gradient(120deg, #f8fafc 0%, #e0e7ff 100%);
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 600px;
+            margin: 3em auto;
+            background: #fff;
+            border-radius: 16px;
+            box-shadow: 0 4px 24px rgba(60, 72, 100, 0.08);
+            padding: 2.5em 2em 2em 2em;
+        }
+        h1 {
+            text-align: center;
+            color: #3b3b5c;
+            font-size: 2.5em;
+            margin-bottom: 0.2em;
+            letter-spacing: 1px;
+        }
+        form {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin-bottom: 2em;
+        }
+        label {
+            font-size: 1.1em;
+            margin-bottom: 0.5em;
+            color: #4b5563;
+        }
+        input[type="text"] {
+            width: 100%;
+            max-width: 400px;
+            padding: 0.7em 1em;
+            border: 1px solid #c7d2fe;
+            border-radius: 8px;
+            font-size: 1em;
+            margin-bottom: 1em;
+            background: #f1f5f9;
+            transition: border 0.2s;
+        }
+        input[type="text"]:focus {
+            border: 1.5px solid #6366f1;
+            outline: none;
+        }
+        button {
+            background: linear-gradient(90deg, #6366f1 0%, #818cf8 100%);
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            padding: 0.7em 2em;
+            font-size: 1.1em;
+            font-weight: 600;
+            cursor: pointer;
+            box-shadow: 0 2px 8px rgba(99, 102, 241, 0.08);
+            transition: background 0.2s, transform 0.1s;
+        }
+        button:hover {
+            background: linear-gradient(90deg, #818cf8 0%, #6366f1 100%);
+            transform: translateY(-2px) scale(1.03);
+        }
+        #results {
+            margin-top: 2em;
+        }
+        .book {
+            background: #f1f5f9;
+            border-radius: 10px;
+            padding: 1.2em 1.5em;
+            margin-bottom: 1.5em;
+            box-shadow: 0 2px 8px rgba(99, 102, 241, 0.06);
+            border-left: 5px solid #6366f1;
+            transition: box-shadow 0.2s;
+        }
+        .book:hover {
+            box-shadow: 0 6px 24px rgba(99, 102, 241, 0.13);
+        }
+        .book-title {
+            font-size: 1.3em;
+            font-weight: 600;
+            color: #3730a3;
+            margin-bottom: 0.2em;
+        }
+        .book-title a {
+            color: inherit;
+            text-decoration: none;
+        }
+        .book-title a:hover {
+            text-decoration: underline;
+        }
+        .author {
+            color: #6366f1;
+            font-weight: 500;
+            margin-bottom: 0.5em;
+        }
+        .summary {
+            color: #374151;
+            font-size: 1em;
+            margin-bottom: 0.5em;
+        }
+        .genres {
+            color: #818cf8;
+            font-size: 0.98em;
+            font-weight: 500;
+        }
+        .score {
+            color: #a1a1aa;
+            font-size: 0.9em;
+            float: right;
+        }
+        @media (max-width: 700px) {
+            .container { padding: 1em; }
+            input[type="text"] { max-width: 100%; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Book Recommender</h1>
+        <form id="promptForm">
+            <label for="prompt">Describe the kind of book you're looking for:</label>
+            <input type="text" id="prompt" name="prompt" required placeholder="e.g. magical realism, space opera, slow and sad love story...">
+            <button type="submit">Get Recommendations</button>
+        </form>
+        <div id="results"></div>
+    </div>
+    <script>
+        document.getElementById('promptForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            const prompt = document.getElementById('prompt').value;
+            document.getElementById('results').innerHTML = '<div style="text-align:center;color:#6366f1;">Loading...</div>';
+            try {
+                const res = await fetch(`/recommend?prompt="${encodeURIComponent(prompt)}"`);
+                const data = await res.json();
+                if (data.results && data.results.length > 0) {
+                    document.getElementById('results').innerHTML = data.results.map(book => `
+                        <div class="book">
+                            <div class="score">Relevance: ${book.score}</div>
+                            <div class="book-title"><a href="${book.link}" target="_blank">${book.title}</a></div>
+                            <div class="author">by ${book.author}</div>
+                            <div class="summary">${book.summary ? book.summary : ''}</div>
+                            <div class="genres">${book.subjects && book.subjects.length ? 'Genres: ' + book.subjects.join(', ') : ''}</div>
+                        </div>
+                    `).join('');
+                } else {
+                    document.getElementById('results').innerHTML = `<div style="text-align:center;color:#ef4444;">${data.message || 'No books found.'}</div>`;
+                }
+            } catch (err) {
+                document.getElementById('results').innerHTML = '<div style="text-align:center;color:#ef4444;">Error fetching recommendations.</div>';
+            }
+        });
+    </script>
+</body>
+</html>

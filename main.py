@@ -4,6 +4,9 @@ from sklearn.metrics.pairwise import cosine_similarity
 from llm_utils import extract_search_query, extract_subject
 import requests
 import re
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
+import os
 
 app = FastAPI()
 model = SentenceTransformer("all-MiniLM-L6-v2")
@@ -44,8 +47,8 @@ from sklearn.metrics.pairwise import cosine_similarity
 model = SentenceTransformer("all-MiniLM-L6-v2")
 
 def is_relevant(books, prompt, threshold=0.2, top_n=10):
-    if not books:
-        print("No books found for relevance check.")
+    if not books or len(books) < 3:
+        print("No books found for relevance check or not enough books.")
         return False
 
     prompt_emb = model.encode([prompt])
@@ -86,15 +89,39 @@ def recommend(prompt: str = Query(..., description="Describe the kind of book yo
     scores = cosine_similarity([user_embedding], book_embeddings)[0]
     top_indices = scores.argsort()[::-1][:5]
     results = []
-
     for idx in top_indices:
         book = books[idx]
-        results.append({
-            "title": book.get("title"),
-            "author": ", ".join(book.get("author_name", [])),
-            "subjects": book.get("subject", []),
-            "score": round(float(scores[idx]), 3),
-            "link": f"https://openlibrary.org{book.get('key', '')}"
-        })
-
+        results.append(format_book_result(book, scores[idx]))
     return {"results": results}
+
+def format_book_result(book, score):
+    # Author
+    author = ", ".join(book.get("author_name", []))
+    if not author and 'authors' in book and isinstance(book['authors'], list):
+        author = ", ".join([a.get('name', '') for a in book['authors'] if 'name' in a])
+    # Summary
+    summary = (
+        (book.get('description', {}).get('value') if isinstance(book.get('description'), dict) else book.get('description'))
+        or (book.get('first_sentence', {}).get('value') if isinstance(book.get('first_sentence'), dict) else book.get('first_sentence'))
+        or book.get('subtitle')
+        or (book.get('notes', {}).get('value') if isinstance(book.get('notes'), dict) else book.get('notes'))
+        or ''
+    )
+    # Subjects/genres
+    subjects = book.get('subject', [])
+    if not subjects and 'subject_facet' in book:
+        subjects = book['subject_facet']
+    subjects = subjects[:3] if isinstance(subjects, list) else []
+    return {
+        "title": book.get("title"),
+        "author": author,
+        "summary": summary,
+        "subjects": subjects,
+        "score": round(float(score), 3),
+        "link": f"https://openlibrary.org{book.get('key', '')}"
+    }
+
+# Serve index.html at root
+@app.get("/")
+def root():
+    return FileResponse(os.path.join(os.path.dirname(__file__), "index.html"))
